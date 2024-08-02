@@ -1,0 +1,78 @@
+# Function to compute approximation problem of degree r
+def approximation_problem(r, a_star_l):
+    a_r_plus_1_options = [a_star_l, a_star_l + 1]
+    results = []
+    for a_r_plus_1 in a_r_plus_1_options:
+        D_r_omega = compute_D_r_omega(D_i_omega, a_r_plus_1)
+        E_r, E_pre, a_star_r = fast_remez_algorithm(D_r_omega)
+        results.append((E_r, E_pre, a_star_r))
+    return results
+
+# Decision making based on computed errors
+def decision_step(E_r, E_up, E_pre):
+    if E_r > E_up:
+        return "stop", E_r
+    elif E_pre < E_up:
+        return "stop", E_r
+    else:
+        return "continue", None
+class BBTree:
+    def __init__(self):
+        self.nodes = []
+    
+    def add_node(self, node):
+        self.nodes.append(node)
+    
+    def get_best_node(self):
+        # Return the node with the best approximation error
+        return min(self.nodes, key=lambda x: x['E'])
+
+# Branch-and-bound method for solving the constrained problem
+def branch_and_bound(a_star, n, E_up):
+    bb_tree = BBTree()
+    root_node = {'a': a_star, 'E': compute_error(a_star), 'bounds': []}
+    bb_tree.add_node(root_node)
+    
+    while True:
+        current_node = bb_tree.get_best_node()
+        if current_node['E'] > E_up:
+            break
+        
+        subproblems = generate_subproblems(current_node, n)
+        for subproblem in subproblems:
+            E_LB = compute_lower_bound(subproblem)
+            if E_LB <= E_up:
+                bb_tree.add_node(subproblem)
+    
+    return bb_tree.get_best_node()
+
+def generate_subproblems(node, n):
+    # Generate subproblems by constraining coefficients to integers
+    subproblems = []
+    for k in range(n):
+        new_subproblem = node.copy()
+        new_subproblem['a'][k] = round(node['a'][k])
+        new_subproblem['E'] = compute_error(new_subproblem['a'])
+        subproblems.append(new_subproblem)
+    return subproblems
+
+def compute_error(a):
+    # Compute the approximation error for coefficients a
+    return sum((a_i - round(a_i))**2 for a_i in a)
+
+def compute_lower_bound(subproblem):
+    # Compute the lower bound for a given subproblem
+    return min(subproblem['E'], subproblem['E_pre'])
+# Scaling factor computation
+def compute_scaling_factor(s):
+    s_prime = s / 2
+    D_omega = s_prime * D_u_omega
+    W_omega = W_u_omega / s_prime
+    return D_omega, W_omega
+
+# Example function to illustrate the optimization process
+def optimization_process():
+    s = initial_scaling_factor()
+    D_omega, W_omega = compute_scaling_factor(s)
+    result = branch_and_bound(initial_a_star, n, E_up)
+    return result
